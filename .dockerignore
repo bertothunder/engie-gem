@@ -5,5 +5,7 @@
 **/__pycache__
 **/tests
 
+Dockerfile
 test-requirements.txt
+pytest.ini
 

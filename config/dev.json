@@ -1,0 +1,4 @@
+{
+  "LOG_LEVEL": "DEBUG",
+  "LISTEN_PORT": 9999
+}
