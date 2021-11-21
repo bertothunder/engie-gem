@@ -12,7 +12,7 @@ def main():
     settings = get_app_settings()
     logger.info(f"Starting , listening on " f"{settings.listen_host}:{settings.listen_port}")
     uvicorn.run(
-        "services.app:app",
+        "api:create_app",
         host=settings.listen_host,
         port=settings.listen_port,
         reload=settings.debug,

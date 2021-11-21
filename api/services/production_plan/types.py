@@ -1,5 +1,9 @@
+import logging
 from typing import Dict, List
 from pydantic import BaseModel, validator
+
+
+logger = logging.getLogger('api.services.production_plan.types')
 
 
 class PowerPlant(BaseModel):
@@ -11,8 +15,8 @@ class PowerPlant(BaseModel):
 
     @validator('efficiency')
     def check_efficiency_value(cls, v):
-        if int(v) >= 1:
-            raise ValueError('Plan efficiency can not be bigger than 1')
+        if v > 1.0:
+            raise ValueError('Plant efficiency can not be bigger than 1')
         return v
 
     @validator('pmin')
@@ -21,20 +25,17 @@ class PowerPlant(BaseModel):
             raise ValueError('Minimum value for plant pmin is 0')
         return v
 
-    @validator('pmin', 'pmax')
-    def check_min_below_pmax(cls, v, values, **kwargs):
-        print(v, values, **kwargs)
-        return v
-
 
 class PowerPlantPayload(BaseModel):
     load: int
     fuels: Dict
     powerplants: List[PowerPlant]
 
-    @validator('fuels')
-    def check_necessary_fuels_info_provided(cls, v):
-        print(v)
-        if ('gas(euro/MWh)', 'kerosine(euro/MWh)', 'wind(%)') not in v:
-            raise ValueError('The "fuels" field does not contain all energy costs and wind efficiency fields')
-        return v
+
+class PerPlanCalculationsPayload(BaseModel):
+    name: str
+    p: int
+
+
+class CalculationsPayload(BaseModel):
+    data: List[PerPlanCalculationsPayload]

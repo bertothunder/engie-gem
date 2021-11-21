@@ -1,3 +1,4 @@
+import json
 import typing
 import logging
 import operator
@@ -53,6 +54,7 @@ def process(data):
     df_map = pd.DataFrame({'type': fuel_costs.keys(),
                            'cost': fuel_costs.values(),
                            'factor': factors})
+    logger.debug(f'Mapped values: \n{df_map}')
 
     # Reorder the dataframe now by type.
     #
@@ -61,23 +63,26 @@ def process(data):
     # gasfired       1      13.4         1.0
     # turbojet       2      50.8         1.0
     sorted_map = df_map.reset_index().set_index('type')
-    logger.debug(f'First sorted mapped data: {sorted_map}')
+    logger.debug(f'First sorted mapped data: \n{sorted_map}')
 
     # Now generate a working dataframe incorporating all the fields from the weighted dataframe above
     df['type_idx'] = df['type'].map(sorted_map['index'])
     df['cost'] = df['type'].map(sorted_map['cost'])
     df['factor'] = df['type'].map(sorted_map['factor'])
+    df = df.reset_index().set_index('type_idx')
+    logger.debug(f'Reset index df\n{df}')
 
     #  Let's obtain now the data sorted by efficiency, power and all other necessary factors.
     #  - type (ascending)
     #  - plant efficiency (descending)
     #  - minimal power (descending)
     #  - max power (descending)
-    # We will also remove intermediate columns. So we obtain a dataset with the right entering order in the
+    # We will also remove intermediate columns. So we obtain a datasets with the right entering order in the
     # electrical grid
-    df2 = df.sort_values(by=['type_idx', 'efficiency', 'pmin', 'pmax'], ascending=[True, False, False,
-                                                                                   False]).reset_index()
+    df2 = df.sort_values(by=['type_idx', 'efficiency', 'pmin', 'pmax'],
+                         ascending=[True, False, False, False]).reset_index()
     df_sorted = df2.drop(labels=['type_idx'], axis=1)
+    logger.info(df2)
 
     # At this point, this is what we should have in the sorted dataframe
     #    name                       type        efficiency  pmin   pmax    cost    factor
@@ -100,12 +105,16 @@ def process(data):
     df_sorted.loc[0, 'remaining'] = required_load - df_sorted.loc[0, 'pmax_generated']
     for i in range(1, len(df_sorted)):
         df_sorted.loc[i, 'remaining'] = df_sorted.loc[i - 1, 'remaining'] - df_sorted.loc[i, 'pmax_generated']
+    logger.debug(f'max power to generate\n{df_sorted}')
 
     # Now get the production for each plant to to get the desired load
     if df_sorted.loc[0, 'remaining'] >= df_sorted.loc[0, 'pmax_generated']:
         df_sorted.loc[0, 'usage'] = df_sorted.loc[0, 'pmax_generated']
     else:
-        df_sorted.loc[0, 'usage'] = 0
+        if required_load <= df_sorted.loc[0, 'pmax_generated']:
+            df_sorted.loc[0, 'usage'] = required_load
+        else:
+            df_sorted.loc[0, 'usage'] = 0
 
     for i in range(1, len(df_sorted)):
         if df_sorted.loc[i - 1, 'remaining'] >= df_sorted.loc[i, 'pmax_generated']:
@@ -118,7 +127,7 @@ def process(data):
 
     # Now we have all data ready, let's clean up the unnecessary columns to return the data
     df_sorted.drop(labels=['index', 'remaining', 'pmax_generated'], axis=1, inplace=True)
-    logger.debug(f'Sorted results after calculations: {df_sorted}')
+    logger.debug(f'Sorted results after calculations: {json.loads(df_sorted.to_json())}')
 
     # At this time this is the expected result figure:
     #
@@ -130,9 +139,12 @@ def process(data):
     # 4 gasfiredsomewhatsmaller     gasfired          0.37     40    210   13.4    1.0     -196.9    0.0
     # 5 tj1                         turbojet          0.30      0     16   50.8    1.0     -201.7    0.0
 
-    # Now return the final dict with only the name and the usage for each plant
+    # Now return the final dict with only the name and the usage for each plant. We'll create a final
+    # dataframe were usage > 0 will be first, and = 0 usage values will be after them (since the
+    # order in the grid will also take it into account)
     result = []
-    for idx, row in df_sorted[['name', 'usage']].iterrows():
+    df_final = pd.concat([df_sorted[df_sorted.usage > 0], df_sorted[df_sorted.usage <= 0]])
+    for idx, row in df_final[['name', 'usage']].iterrows():
         result.append({
             'name': row['name'],
             'p': round(row['usage']),
