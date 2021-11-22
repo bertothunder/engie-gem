@@ -16,12 +16,6 @@ DEBUG: bool = True if os.getenv("DEBUG", "False").upper() in ("TRUE", "1") else 
 LOG_FORMAT: str = "%(asctime)s - %(levelname)s - %(name)s:%(filename)s:%(lineno)d - %(message)s"
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
-# General formats
-DATE_GENERAL_FORMAT: str = "dd/mm/YYYY HH:MM:SS"
-DATE_INTERNAL_FORMAT: str = "dd/mm/YYYY[T]HH:MM:SS.sss"
-STRING_SHORT_FORMAT: str = "%d/%m/%Y"
-STRING_GENERAL_FORMAT: str = "%d/%m/%Y %H:%M:%S"
-
 
 # Load in an environment specific config file the build process maps environment variables
 env_config_file = os.getenv("CFG_FILE", "config/dev.json")
@@ -43,12 +37,6 @@ class AppSettings(BaseSettings):
     debug: bool = DEBUG
     log_format: str = LOG_FORMAT
     log_level: str = LOG_LEVEL
-
-    # General formats
-    date_general_format: str = DATE_GENERAL_FORMAT
-    date_internal_format: str = DATE_INTERNAL_FORMAT
-    string_short_format: str = STRING_SHORT_FORMAT
-    string_general_format: str = STRING_GENERAL_FORMAT
 
     services = [
         "api.services.production_plan",

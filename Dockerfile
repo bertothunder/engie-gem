@@ -1,15 +1,21 @@
 FROM python:3.9
-LABEL owner=albertocurro
-
+ENV LISTEN_HOST="127.0.0.1"
+ENV LISTEN_PORT=8888
+ENV DEBUG=false
+ENV CFG_FILE="config/docker.json"
+ENV LOG_LEVEL="INFO"
+ENV LOG_FILE=""
 
 WORKDIR /app
-COPY requirements.txt /tmp
+RUN useradd apiuser -m && chown apiuser /app && pip install virtualenv
 
-RUN useradd apiuser && chown user /app && apt update -y && pip install -r requirements.txt
+COPY requirements.txt /home/apiuser
+
 USER apiuser
+RUN virtualenv venv && venv/bin/pip install --upgrade pip setuptools wheel \
+    && venv/bin/pip install -r /home/apiuser/requirements.txt
 
 COPY . /app
 
-EXPOSE 8888
-ENTRYPOINT ["entrypoint.sh"]
-
+EXPOSE $LISTEN_PORT
+CMD ["venv/bin/python", "main.py"]

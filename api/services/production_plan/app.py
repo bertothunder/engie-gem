@@ -3,7 +3,10 @@ import anyio
 import typing
 import logging
 from fastapi import APIRouter
-from api.services.production_plan.types import PowerPlantPayload, PerPlanCalculationsPayload
+from api.services.production_plan.types import (
+    PowerPlantPayload,
+    PerPlanCalculationsPayload,
+)
 from api.services.production_plan.controller import process
 
 

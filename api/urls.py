@@ -6,7 +6,7 @@ from api.settings import get_app_settings
 
 
 router = APIRouter()
-logger = logging.getLogger('api.main.settings')
+logger = logging.getLogger("api.main.settings")
 settings = get_app_settings()
 
 

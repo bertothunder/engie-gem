@@ -33,10 +33,10 @@ def client(app: FastAPI) -> TestClient:
     yield TestClient(app)
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def missing_load_dataset():
     # No load
-    return '''
+    return """
         {
             "fuels":
                 {
@@ -55,12 +55,12 @@ def missing_load_dataset():
                 }
             ]
         }
-    '''
+    """
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def invalid_int_value_dataset():
-    return '''
+    return """
         {
             "load": 400,
             "fuels":
@@ -80,12 +80,12 @@ def invalid_int_value_dataset():
                 },
             ]
         }
-    '''
+    """
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def normal_json_dataset():
-    return '''
+    return """
         {
       "load": 480,
       "fuels":
@@ -139,4 +139,4 @@ def normal_json_dataset():
           "pmax": 36
         }
       ]
-    }'''
+    }"""

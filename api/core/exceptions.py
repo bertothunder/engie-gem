@@ -32,7 +32,7 @@ ERRORS = {
 }
 
 
-logger = logging.getLogger('api.core.exceptions')
+logger = logging.getLogger("api.core.exceptions")
 
 
 class APIException(Exception):
@@ -119,7 +119,7 @@ class UnauthorizedException(APIException):
 
 
 class NotAllowedException(APIException):
-    """"Abstracts the internal error due to entity not having enough permissions"""
+    """ "Abstracts the internal error due to entity not having enough permissions"""
 
     def __init__(self, msg=None, status_code=403, error_code=NOT_ALLOWED):
         super().__init__(msg, status_code, error_code)

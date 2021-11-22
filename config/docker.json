@@ -1,0 +1,5 @@
+{
+  "LOG_LEVEL": "INFO",
+  "LISTEN_PORT": 8888,
+  "DEBUG": false
+}

@@ -5,37 +5,37 @@ import operator
 import pandas as pd
 
 
-logger = logging.getLogger('api.services.production_plan.controller')
+logger = logging.getLogger("api.services.production_plan.controller")
 
 
 def get_cost_per_fuel_type(data: typing.Dict, fuel_type: str) -> float:
     # Default return value will be for wind, at 0 cost.
     cost = 0.0
-    if fuel_type == 'gasfired':
-        cost = float(data['fuels']['gas(euro/MWh)'])
-    elif fuel_type == 'turbojet':
-        cost = float(data['fuels']['kerosine(euro/MWh)'])
+    if fuel_type == "gasfired":
+        cost = float(data["fuels"]["gas(euro/MWh)"])
+    elif fuel_type == "turbojet":
+        cost = float(data["fuels"]["kerosine(euro/MWh)"])
     return cost
 
 
 def get_types(plants: typing.List[typing.Dict]) -> typing.List[str]:
-    all_types = [plant['type'] for plant in plants]
+    all_types = [plant["type"] for plant in plants]
     # Return the unique values
     return list(set(all_types))
 
 
 def process(data):
     # Obtain the initial dataframe from the data, only from 'powerplants' section
-    df = pd.json_normalize(data, record_path=['powerplants'])
-    logger.debug(f'Read data: {df}')
+    df = pd.json_normalize(data, record_path=["powerplants"])
+    logger.debug(f"Read data: {df}")
 
-    required_load = float(data['load'])
-    logger.info(f'Required load: {required_load}')
+    required_load = float(data["load"])
+    logger.info(f"Required load: {required_load}")
 
     # Parse the data to obtain the fuel types and the costs per type
-    fuel_types = get_types(data['powerplants'])
+    fuel_types = get_types(data["powerplants"])
     fuel_costs = {fuel_type: get_cost_per_fuel_type(data, fuel_type) for fuel_type in fuel_types}
-    logger.debug(f'Fuel costs: {fuel_costs}')
+    logger.debug(f"Fuel costs: {fuel_costs}")
 
     # Now sort the types by the cost in ascending order
     fuel_costs = dict(sorted(fuel_costs.items(), key=operator.itemgetter(1)))
@@ -44,17 +44,15 @@ def process(data):
     # otherwise it will assign a factor or 1.
     factors = []
     for key, _ in fuel_costs.items():
-        if key == 'windturbine':
-            factors.append(float(data['fuels']['wind(%)'] / 100))
+        if key == "windturbine":
+            factors.append(float(data["fuels"]["wind(%)"] / 100))
         else:
             factors.append(1.0)
 
     # Create a new dataframe with  weigths, production costs, sorting keys and efficiency factors for each
     # plant type, so we obtain a mapped powerplant -> fuel set.
-    df_map = pd.DataFrame({'type': fuel_costs.keys(),
-                           'cost': fuel_costs.values(),
-                           'factor': factors})
-    logger.debug(f'Mapped values: \n{df_map}')
+    df_map = pd.DataFrame({"type": fuel_costs.keys(), "cost": fuel_costs.values(), "factor": factors})
+    logger.debug(f"Mapped values: \n{df_map}")
 
     # Reorder the dataframe now by type.
     #
@@ -62,15 +60,15 @@ def process(data):
     # windturbine    0       0.0         0.6
     # gasfired       1      13.4         1.0
     # turbojet       2      50.8         1.0
-    sorted_map = df_map.reset_index().set_index('type')
-    logger.debug(f'First sorted mapped data: \n{sorted_map}')
+    sorted_map = df_map.reset_index().set_index("type")
+    logger.debug(f"First sorted mapped data:\n{sorted_map}")
 
     # Now generate a working dataframe incorporating all the fields from the weighted dataframe above
-    df['type_idx'] = df['type'].map(sorted_map['index'])
-    df['cost'] = df['type'].map(sorted_map['cost'])
-    df['factor'] = df['type'].map(sorted_map['factor'])
-    df = df.reset_index().set_index('type_idx')
-    logger.debug(f'Reset index df\n{df}')
+    df["type_idx"] = df["type"].map(sorted_map["index"])
+    df["cost"] = df["type"].map(sorted_map["cost"])
+    df["factor"] = df["type"].map(sorted_map["factor"])
+    df = df.reset_index().set_index("type_idx")
+    logger.debug(f"Reset index df\n{df}")
 
     #  Let's obtain now the data sorted by efficiency, power and all other necessary factors.
     #  - type (ascending)
@@ -79,10 +77,12 @@ def process(data):
     #  - max power (descending)
     # We will also remove intermediate columns. So we obtain a datasets with the right entering order in the
     # electrical grid
-    df2 = df.sort_values(by=['type_idx', 'efficiency', 'pmin', 'pmax'],
-                         ascending=[True, False, False, False]).reset_index()
-    df_sorted = df2.drop(labels=['type_idx'], axis=1)
-    logger.info(df2)
+    df2 = df.sort_values(
+        by=["type_idx", "efficiency", "pmin", "pmax"],
+        ascending=[True, False, False, False],
+    ).reset_index()
+    df_sorted = df2.drop(labels=["type_idx"], axis=1)
+    logger.info(f"\n{df2}")
 
     # At this point, this is what we should have in the sorted dataframe
     #    name                       type        efficiency  pmin   pmax    cost    factor
@@ -98,36 +98,51 @@ def process(data):
     # values, only max values.
     #
     # - Maximum energy to be produced by the plant
-    df_sorted['pmax_generated'] = df_sorted.pmax.mul(df_sorted.efficiency).mul(df_sorted.factor)
+    df_sorted["pmax_generated"] = df_sorted.pmax.mul(df_sorted.efficiency).mul(df_sorted.factor)
+
+    # Calculate the same based on pmin
+    df_sorted["pmin_generated"] = df_sorted.pmin.mul(df_sorted.efficiency).mul(df_sorted.factor)
 
     # Calculate production figures, including rolling sum of the generated production
     # First row will start with the desired production value, and we will rest the value  for each next row.
-    df_sorted.loc[0, 'remaining'] = required_load - df_sorted.loc[0, 'pmax_generated']
+    df_sorted.loc[0, "remaining"] = required_load - df_sorted.loc[0, "pmax_generated"]
     for i in range(1, len(df_sorted)):
-        df_sorted.loc[i, 'remaining'] = df_sorted.loc[i - 1, 'remaining'] - df_sorted.loc[i, 'pmax_generated']
-    logger.debug(f'max power to generate\n{df_sorted}')
+        max_consumption = df_sorted.loc[i, "pmax_generated"]
+        min_consumption = df_sorted.loc[i, "pmin_generated"]
+        prev_remain = df_sorted.loc[i - 1, "remaining"]
+        energy_consumed = max_consumption
+        # If we don't have enough energy remaining, let's check to use if we have enough min power requirements.
+        if max_consumption > prev_remain > 0:
+            energy_consumed = 0
+            if prev_remain >= min_consumption:
+                energy_consumed = prev_remain
+        df_sorted.loc[i, "remaining"] = prev_remain - energy_consumed
+    logger.debug(
+        f'Calculations on remaining / max / min usage\n{df_sorted[["index", "name", "pmax_generated", "pmin_generated", "remaining"]]}'
+    )
 
     # Now get the production for each plant to to get the desired load
-    if df_sorted.loc[0, 'remaining'] >= df_sorted.loc[0, 'pmax_generated']:
-        df_sorted.loc[0, 'usage'] = df_sorted.loc[0, 'pmax_generated']
+    # Since first row is 100% assigned to a 0-cost, wind-powered plant, won't check here for the min power
+    # generated in the calculation.
+    df_sorted.loc[0, "usage"] = 0
+    if df_sorted.loc[0, "remaining"] >= df_sorted.loc[0, "pmax_generated"]:
+        df_sorted.loc[0, "usage"] = df_sorted.loc[0, "pmax_generated"]
     else:
-        if required_load <= df_sorted.loc[0, 'pmax_generated']:
-            df_sorted.loc[0, 'usage'] = required_load
-        else:
-            df_sorted.loc[0, 'usage'] = 0
+        if required_load <= df_sorted.loc[0, "pmax_generated"]:
+            df_sorted.loc[0, "usage"] = required_load
 
     for i in range(1, len(df_sorted)):
-        if df_sorted.loc[i - 1, 'remaining'] >= df_sorted.loc[i, 'pmax_generated']:
-            df_sorted.loc[i, 'usage'] = df_sorted.loc[i, 'pmax_generated']
+        remaining = df_sorted.loc[i - 1, "remaining"]
+        pmax_generated = df_sorted.loc[i, "pmax_generated"]
+        pmin_generated = df_sorted.loc[i, "pmin_generated"]
+        df_sorted.loc[i, "usage"] = 0
+        if remaining >= pmax_generated:
+            df_sorted.loc[i, "usage"] = pmax_generated
         else:
-            if df_sorted.loc[i - 1, 'remaining'] >= 0:
-                df_sorted.loc[i, 'usage'] = df_sorted.loc[i-1, 'remaining']
-            else:
-                df_sorted.loc[i, 'usage'] = 0
+            if remaining >= 0 and remaining >= pmin_generated:
+                df_sorted.loc[i, "usage"] = remaining
 
-    # Now we have all data ready, let's clean up the unnecessary columns to return the data
-    df_sorted.drop(labels=['index', 'remaining', 'pmax_generated'], axis=1, inplace=True)
-    logger.debug(f'Sorted results after calculations: {json.loads(df_sorted.to_json())}')
+    logger.debug(f"Sorted results after calculations:\n{json.loads(df_sorted.to_json(indent=4))}")
 
     # At this time this is the expected result figure:
     #
@@ -144,9 +159,11 @@ def process(data):
     # order in the grid will also take it into account)
     result = []
     df_final = pd.concat([df_sorted[df_sorted.usage > 0], df_sorted[df_sorted.usage <= 0]])
-    for idx, row in df_final[['name', 'usage']].iterrows():
-        result.append({
-            'name': row['name'],
-            'p': round(row['usage']),
-        })
+    for idx, row in df_final[["name", "usage"]].iterrows():
+        result.append(
+            {
+                "name": row["name"],
+                "p": round(row["usage"]),
+            }
+        )
     return result

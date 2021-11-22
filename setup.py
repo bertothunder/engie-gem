@@ -14,13 +14,15 @@ setup(
     name="engie-gem-spaas",
     version=manifest["version"],
     packages=[
-        "app",
-        "app.core",
-        "app.services",
+        "api",
+        "api.core",
+        "api.services",
     ],
     include_package_data=True,
     zip_safe=False,
-    package_data={"config": ["config/*.json"], "": ["alembic.ini"]},
+    package_data={
+        "config": ["config/*.json"],
+    },
     author="Alberto Curro",
     author_email="bertothunder@gmail.com",
     install_requires=[

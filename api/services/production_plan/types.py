@@ -3,7 +3,7 @@ from typing import Dict, List
 from pydantic import BaseModel, validator
 
 
-logger = logging.getLogger('api.services.production_plan.types')
+logger = logging.getLogger("api.services.production_plan.types")
 
 
 class PowerPlant(BaseModel):
@@ -13,16 +13,16 @@ class PowerPlant(BaseModel):
     pmin: int
     pmax: int
 
-    @validator('efficiency')
+    @validator("efficiency")
     def check_efficiency_value(cls, v):
         if v > 1.0:
-            raise ValueError('Plant efficiency can not be bigger than 1')
+            raise ValueError("Plant efficiency can not be bigger than 1")
         return v
 
-    @validator('pmin')
+    @validator("pmin")
     def check_pmin_not_below_zero(cls, v):
         if v < 0:
-            raise ValueError('Minimum value for plant pmin is 0')
+            raise ValueError("Minimum value for plant pmin is 0")
         return v
 
 
