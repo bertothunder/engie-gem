@@ -90,6 +90,46 @@ def test_little_load_powerset_calculations():
     assert result == expected_data
 
 
+def test_different_efficiency_powerset_calculations():
+    """
+    Tests the calculations with an standard dataset but with different efficiencies
+    """
+    json_file = os.path.join(dataset_path, '../datasets', 'power_test_efficiencies_order.json')
+    with open(json_file, 'r') as f:
+        data = json.load(f)
+
+    result = process(data)
+
+    expected_data = [
+        {
+            'name': 'windpark1',
+            'p': 90,
+        },
+        {
+            'name': 'windpark2',
+            'p': 22,
+        },
+        {
+            'name': 'gasfiredbig2',
+            'p': 308,
+        },
+        {
+            'name': 'gasfiredsomewhatsmaller',
+            'p': 60,
+        },
+        {
+            'name': 'gasfiredbig1',
+            'p': 0,
+        },
+        {
+            'name': 'tj1',
+            'p': 0,
+        }
+    ]
+
+    assert result == expected_data
+
+
 def test_little_load_powerset_no_wind_efficiency():
     """
     Tests the calculations when no wind efficiency is given, which will actually put the next plants into the grid.
